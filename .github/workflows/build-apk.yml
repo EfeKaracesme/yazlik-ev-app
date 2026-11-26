@@ -1,0 +1,186 @@
+name: APK oluştur
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Android projesini hazırla
+        run: |
+          A=android/app/src/main
+          mkdir -p $A/assets $A/java/com/yazlik/ev $A/res/drawable
+          cp index.html $A/assets/index.html
+
+          cat > android/settings.gradle <<'EOF'
+          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+          dependencyResolutionManagement { repositories { google(); mavenCentral() } }
+          rootProject.name = "YazlikEv"
+          include ':app'
+          EOF
+
+          cat > android/build.gradle <<'EOF'
+          plugins { id 'com.android.application' version '8.5.2' apply false }
+          EOF
+
+          echo "org.gradle.jvmargs=-Xmx2g" > android/gradle.properties
+
+          cat > android/app/build.gradle <<'EOF'
+          plugins { id 'com.android.application' }
+          android {
+              namespace 'com.yazlik.ev'
+              compileSdk 34
+              defaultConfig {
+                  applicationId 'com.yazlik.ev'
+                  minSdk 24
+                  targetSdk 34
+                  versionCode 1
+                  versionName '1.0'
+              }
+              buildTypes {
+                  release {
+                      minifyEnabled false
+                      signingConfig signingConfigs.debug
+                  }
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+          }
+          EOF
+
+          cat > $A/AndroidManifest.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <application
+                  android:label="Yazlık"
+                  android:icon="@drawable/ic_launcher"
+                  android:roundIcon="@drawable/ic_launcher"
+                  android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen"
+                  android:hardwareAccelerated="true">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:screenOrientation="unspecified"
+                      android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          cat > $A/res/drawable/ic_launcher.xml <<'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp" android:height="108dp"
+              android:viewportWidth="16" android:viewportHeight="16">
+              <path android:fillColor="#7FC4EF" android:pathData="M0,0h16v16h-16z" />
+              <path android:fillColor="#5FAE45" android:pathData="M0,12h16v4h-16z" />
+              <path android:fillColor="#F0DFBD" android:pathData="M4,7h8v5h-8z" />
+              <path android:fillColor="#C2492F" android:pathData="M3,7L8,3L13,7z" />
+              <path android:fillColor="#8A5A32" android:pathData="M7,9h2v3h-2z" />
+              <path android:fillColor="#8CC8EC" android:pathData="M5,8h1.5v1.5h-1.5zM9.5,8h1.5v1.5h-1.5z" />
+              <path android:fillColor="#FFE066" android:pathData="M12,1h2v2h-2z" />
+          </vector>
+          EOF
+
+          cat > $A/java/com/yazlik/ev/MainActivity.java <<'EOF'
+          package com.yazlik.ev;
+
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.view.View;
+          import android.view.WindowManager;
+          import android.webkit.WebSettings;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+
+          public class MainActivity extends Activity {
+              private WebView web;
+
+              @Override
+              protected void onCreate(Bundle state) {
+                  super.onCreate(state);
+                  getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                  web = new WebView(this);
+                  WebSettings s = web.getSettings();
+                  s.setJavaScriptEnabled(true);
+                  s.setDomStorageEnabled(true);
+                  s.setMediaPlaybackRequiresUserGesture(false);
+                  web.setWebViewClient(new WebViewClient());
+                  setContentView(web);
+                  hideBars();
+                  if (state == null) web.loadUrl("file:///android_asset/index.html");
+                  else web.restoreState(state);
+              }
+
+              @SuppressWarnings("deprecation")
+              private void hideBars() {
+                  web.setSystemUiVisibility(View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                      | View.SYSTEM_UI_FLAG_FULLSCREEN
+                      | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                      | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                      | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                      | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
+              }
+
+              @Override
+              public void onWindowFocusChanged(boolean hasFocus) {
+                  super.onWindowFocusChanged(hasFocus);
+                  if (hasFocus) hideBars();
+              }
+
+              @Override
+              protected void onSaveInstanceState(Bundle out) {
+                  super.onSaveInstanceState(out);
+                  web.saveState(out);
+              }
+
+              @Override
+              protected void onPause() { super.onPause(); web.onPause(); }
+
+              @Override
+              protected void onResume() { super.onResume(); web.onResume(); }
+          }
+          EOF
+
+      - name: APK derle
+        working-directory: android
+        run: gradle assembleRelease --no-daemon
+
+      - name: APK dosyasını adlandır
+        run: cp android/app/build/outputs/apk/release/app-release.apk Yazlik-Piksel-Ev.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Yazlik-Piksel-Ev-apk
+          path: Yazlik-Piksel-Ev.apk
+
+      - name: Sürüm yayınla
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.${{ github.run_number }}
+          name: Yazlık Piksel Ev v1.${{ github.run_number }}
+          body: Telefona indirip kurmak için aşağıdaki Yazlik-Piksel-Ev.apk dosyasına dokun.
+          files: Yazlik-Piksel-Ev.apk
