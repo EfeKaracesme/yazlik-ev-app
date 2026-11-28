@@ -384,7 +384,7 @@ function erase(c){const i=topAt(c);if(i<0)return false;items.splice(i,1);beep(18
 let dpr=1,S=4,camX=0,camY=0,dockPx=0;
 const Smin=()=>Math.max(1,Math.round(dpr)),Smax=()=>Math.round(10*dpr);
 function clampCam(){const vw=cv.width/S,vh=cv.height/S,vis=vh-dockPx/S;camX=Math.min(Math.max(camX,-vw*.4),W*T-vw*.6);const lo=-vh*.2,hi=GY+130-vis;camY=hi<lo?(lo+hi)/2:Math.min(Math.max(camY,lo),hi)}
-function resize(first){const ox=camX+cv.width/S/2,oy=camY+cv.height/S/2;dpr=Math.min(3,window.devicePixelRatio||1);cv.width=Math.round(innerWidth*dpr);cv.height=Math.round(innerHeight*dpr);dockPx=$('dock').offsetHeight*dpr;
+function resize(first){const ox=camX+cv.width/S/2,oy=camY+cv.height/S/2;dpr=Math.min(1.5,window.devicePixelRatio||1);cv.width=Math.round(innerWidth*dpr);cv.height=Math.round(innerHeight*dpr);dockPx=$('dock').offsetHeight*dpr;
   if(first){S=Math.max(Smin(),Math.round(Math.min(cv.width/(26*T),(cv.height-dockPx-70*dpr)/(11*T+120))));camX=84*T-cv.width/S/2;camY=GY+118-(cv.height-dockPx)/S}else{camX=ox-cv.width/S/2;camY=oy-cv.height/S/2}clampCam()}
 function zoomAt(ns,sx,sy){ns=Math.max(Smin(),Math.min(Smax(),ns));const wx=camX+sx/S,wy=camY+sy/S;S=ns;camX=wx-sx/S;camY=wy-sy/S;clampCam()}
 
@@ -409,18 +409,20 @@ if(p.person){const sd=hs(o.x*13+o.y*7),fl=!reduce&&Math.floor((t+sd%11)/(4+sd%5)
 const HZ=[[226,241,238],[251,190,130],[51,66,118]];
 const HEART=['.XX.XX.','XXXXXXX','XXXXXXX','.XXXXX.','..XXX..','...X...'];
 let hearts=[];
+/* gradyan önbelleği: her karede yeni gradyan üretmemek için */
+const GC=new Map();const gcache=(k,f)=>{let v=GC.get(k);if(!v){if(GC.size>60)GC.clear();v=f();GC.set(k,v)}return v};
 function scene(g,S,cx,cy,cw,ch,opt){
   const m=mode,now=performance.now()/1000,t=reduce?0:now;g.setTransform(1,0,0,1,0,0);g.imageSmoothingEnabled=false;
-  const B=SKY[m],sg=g.createLinearGradient(0,0,0,ch);B.forEach((c,i)=>sg.addColorStop(i/(B.length-1),c));g.fillStyle=sg;g.fillRect(0,0,cw,ch);
+  const B=SKY[m],sg=gcache('s'+m+','+ch,()=>{const q=g.createLinearGradient(0,0,0,ch);B.forEach((c,i)=>q.addColorStop(i/(B.length-1),c));return q});g.fillStyle=sg;g.fillRect(0,0,cw,ch);
   /* güneş ve ay ekrana sabit: kamera hareket etse de yerinden oynamaz */
   const u=Math.max(2,Math.round(Math.min(cw,ch)/170)),sx=Math.round(cw*.74),sy=Math.round(ch*(m===1?.34:.17));
-  const glow=(r,c0)=>{const gr=g.createRadialGradient(sx,sy,0,sx,sy,r);gr.addColorStop(0,c0);gr.addColorStop(1,c0.replace(/[\d.]+\)$/,'0)'));g.fillStyle=gr;g.fillRect(sx-r,sy-r,r*2,r*2)};
+  const glow=(r,c0)=>{const gr=gcache('g'+sx+','+sy+','+r+c0,()=>{const q=g.createRadialGradient(sx,sy,0,sx,sy,r);q.addColorStop(0,c0);q.addColorStop(1,c0.replace(/[\d.]+\)$/,'0)'));return q});g.fillStyle=gr;g.fillRect(sx-r,sy-r,r*2,r*2)};
   if(m===2){for(let i=0;i<90;i++){g.fillStyle=`rgba(255,247,220,${.5+.4*Math.sin(t*1.6+i)})`;const sz=i%5?Math.max(1,u>>1):u;g.fillRect(Math.round(hs(i*13+5)%1000/1000*cw),Math.round(hs(i*7+3)%1000/1000*ch*.6),sz,sz)}
     glow(44*u,'rgba(244,236,208,.28)');g.fillStyle='#f4ecd0';pcirc(g,sx,sy,9*u,u);g.fillStyle='#d9d0b2';g.fillRect(sx-4*u,sy+2*u,2*u,2*u);g.fillRect(sx-u,sy-5*u,u,u);g.fillStyle=B[1];pcirc(g,sx+4*u,sy-3*u,8*u,u)}
   else if(m===0){glow(48*u,'rgba(255,248,210,.7)');g.fillStyle='#ffe066';pcirc(g,sx,sy,10*u,u);g.fillStyle='#fff3b0';pcirc(g,sx,sy,7*u,u)}
   else{glow(90*u,'rgba(255,160,90,.55)');g.fillStyle='#ff9a4e';pcirc(g,sx,sy,15*u,u);g.fillStyle='#ffc070';pcirc(g,sx,sy,11*u,u);g.fillStyle='rgba(122,60,110,.45)';for(let k=0;k<3;k++)g.fillRect(sx-16*u,sy+(3+k*4)*u,32*u,u)}
   
-if(WX>0){const k=[0,.3,.64,.42,.84,.5][WX],gc=m===2?'28,32,46':WX===3||WX===5?'205,212,222':'100,110,126',gr=g.createLinearGradient(0,0,0,ch);gr.addColorStop(0,`rgba(${gc},${k})`);gr.addColorStop(1,`rgba(${gc},${k*.55})`);g.fillStyle=gr;g.fillRect(0,0,cw,ch)}
+if(WX>0){const k=[0,.3,.64,.42,.84,.5][WX],gc=m===2?'28,32,46':WX===3||WX===5?'205,212,222':'100,110,126',gr=gcache('w'+gc+k+','+ch,()=>{const q=g.createLinearGradient(0,0,0,ch);q.addColorStop(0,`rgba(${gc},${k})`);q.addColorStop(1,`rgba(${gc},${k*.55})`);return q});g.fillStyle=gr;g.fillRect(0,0,cw,ch)}
 const haze=a=>{const [r,gg,b]=HZ[m],y0=(GY-cy)*S,top=y0-180*S,gr=g.createLinearGradient(0,top,0,y0);gr.addColorStop(0,`rgba(${r},${gg},${b},0)`);gr.addColorStop(1,`rgba(${r},${gg},${b},${a})`);g.setTransform(1,0,0,1,0,0);g.fillStyle=gr;g.fillRect(0,top,cw,y0-top+2)};
   const L=(f,fn)=>{const ox=Math.round(-cx*f*S);g.setTransform(S,0,0,S,ox,Math.round(-cy*S));fn(-ox/S,(cw-ox)/S)};
   L(.12,(a,b)=>{for(let x=Math.floor(a/4)*4;x<b;x+=4){const h=Math.round(mountH(x)/2)*2;g.fillStyle=tc('#a9c4e0',m);g.fillRect(x,GY-h,4,h+8);if(mountH(x+6)<mountH(x)-1){g.fillStyle=tc('#97b3d2',m);g.fillRect(x,GY-h+3,4,h)}const sn=Math.max(0,h-200)*.7;if(sn){g.fillStyle=tc('#eef4fb',m);g.fillRect(x,GY-h,4,Math.round(sn/2)*2+2);if(mountH(x+6)<mountH(x)-1){g.fillStyle=tc('#cdd9ea',m);g.fillRect(x,GY-h+2,4,Math.round(sn/2)*2)}}}});
@@ -528,7 +530,11 @@ if(opt.grid){g.fillStyle=m===2?'rgba(255,240,200,.07)':'rgba(58,38,24,.07)';cons
     else{const i=topAt(h);if(i>=0){const o=items[i],q=PM[o.id];box(o.x*T,o.y*T,q.w*T,q.h*T,'#e8664a')}else box(h.x*T,h.y*T,T,T,'rgba(232,102,74,.6)')}}
 }
 let hover=null;
-function loop(){scene(ctx,S,camX,camY,cv.width,cv.height,{grid,ghost:hover,live:1});requestAnimationFrame(loop)}
+/* kare sınırlama: dokunurken ~60 fps, boşta ~15 fps, arka planda hiç çizme */
+let fLast=-1e9,fAct=performance.now();const fKick=()=>{fAct=performance.now()};
+['pointerdown','pointermove','pointerup','wheel','keydown','touchstart','touchmove','click','input','change','resize'].forEach(ev=>addEventListener(ev,fKick,{capture:true,passive:true}));
+document.addEventListener('visibilitychange',fKick);
+function loop(now){requestAnimationFrame(loop);if(document.hidden)return;now=now||performance.now();const gap=now-fAct<1500?12:(reduce?1000:66);if(now-fLast<gap)return;fLast=now;scene(ctx,S,camX,camY,cv.width,cv.height,{grid,ghost:hover,live:1})}
 
 /* ---------- dokunma ---------- */
 const ptrs=new Map();let stroke=null,pan=null,pinch=null;
