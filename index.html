@@ -410,7 +410,9 @@ const HZ=[[226,241,238],[251,190,130],[51,66,118]];
 const HEART=['.XX.XX.','XXXXXXX','XXXXXXX','.XXXXX.','..XXX..','...X...'];
 let hearts=[];
 /* gradyan önbelleği: her karede yeni gradyan üretmemek için */
-const GC=new Map();const gcache=(k,f)=>{let v=GC.get(k);if(!v){if(GC.size>60)GC.clear();v=f();GC.set(k,v)}return v};
+const GC=new Map(),LT=new Map(),RC={};const gcache=(k,f)=>{let v=GC.get(k);if(!v){if(GC.size>60)GC.clear();v=f();GC.set(k,v)}return v};
+/* 3B yan yüz: 5 kopya tek bir hazır görüntüde birleştirilir */
+const EY=Math.max(0,-DY);function extr(p,m){const sd=p.side[m];p.ext=p.ext||[];p.extS=p.extS||[];if(p.ext[m]&&p.extS[m]===sd)return p.ext[m];const c=document.createElement('canvas');c.width=sd.width+Math.max(0,DX);c.height=sd.height+Math.abs(DY);const cg=c.getContext('2d');for(let k=DS;k>0;k--)cg.drawImage(sd,Math.round(DX*k/DS),EY+Math.round(DY*k/DS));p.extS[m]=sd;return p.ext[m]=c}
 function scene(g,S,cx,cy,cw,ch,opt){
   const m=mode,now=performance.now()/1000,t=reduce?0:now;g.setTransform(1,0,0,1,0,0);g.imageSmoothingEnabled=false;
   const B=SKY[m],sg=gcache('s'+m+','+ch,()=>{const q=g.createLinearGradient(0,0,0,ch);B.forEach((c,i)=>q.addColorStop(i/(B.length-1),c));return q});g.fillStyle=sg;g.fillRect(0,0,cw,ch);
@@ -425,17 +427,19 @@ function scene(g,S,cx,cy,cw,ch,opt){
 if(WX>0){const k=[0,.3,.64,.42,.84,.5][WX],gc=m===2?'28,32,46':WX===3||WX===5?'205,212,222':'100,110,126',gr=gcache('w'+gc+k+','+ch,()=>{const q=g.createLinearGradient(0,0,0,ch);q.addColorStop(0,`rgba(${gc},${k})`);q.addColorStop(1,`rgba(${gc},${k*.55})`);return q});g.fillStyle=gr;g.fillRect(0,0,cw,ch)}
 const haze=a=>{const [r,gg,b]=HZ[m],y0=(GY-cy)*S,top=y0-180*S,gr=g.createLinearGradient(0,top,0,y0);gr.addColorStop(0,`rgba(${r},${gg},${b},0)`);gr.addColorStop(1,`rgba(${r},${gg},${b},${a})`);g.setTransform(1,0,0,1,0,0);g.fillStyle=gr;g.fillRect(0,top,cw,y0-top+2)};
   const L=(f,fn)=>{const ox=Math.round(-cx*f*S);g.setTransform(S,0,0,S,ox,Math.round(-cy*S));fn(-ox/S,(cw-ox)/S)};
-  L(.12,(a,b)=>{for(let x=Math.floor(a/4)*4;x<b;x+=4){const h=Math.round(mountH(x)/2)*2;g.fillStyle=tc('#a9c4e0',m);g.fillRect(x,GY-h,4,h+8);if(mountH(x+6)<mountH(x)-1){g.fillStyle=tc('#97b3d2',m);g.fillRect(x,GY-h+3,4,h)}const sn=Math.max(0,h-200)*.7;if(sn){g.fillStyle=tc('#eef4fb',m);g.fillRect(x,GY-h,4,Math.round(sn/2)*2+2);if(mountH(x+6)<mountH(x)-1){g.fillStyle=tc('#cdd9ea',m);g.fillRect(x,GY-h+2,4,Math.round(sn/2)*2)}}}});
+  /* sabit katmanlar 512 birimlik karolara bir kez çizilip önbellekte tutulur */
+  const LC=(key,f,y0,th,fn)=>{const ox=Math.round(-cx*f*S);g.setTransform(S,0,0,S,ox,Math.round(-cy*S));const a=-ox/S,b=(cw-ox)/S,TW=512;for(let i=Math.floor(a/TW);i*TW<b;i++){const k=key+m+'|'+i;let c=LT.get(k);if(!c){if(LT.size>64)LT.clear();c=document.createElement('canvas');c.width=TW;c.height=th;const cg=c.getContext('2d');cg.setTransform(1,0,0,1,-i*TW,-y0);const g0=g;g=cg;try{fn(i*TW-48,(i+1)*TW+48)}finally{g=g0}LT.set(k,c)}g.drawImage(c,i*TW,y0)}};
+  LC('mt',.12,GY-300,312,(a,b)=>{for(let x=Math.floor(a/4)*4;x<b;x+=4){const h=Math.round(mountH(x)/2)*2;g.fillStyle=tc('#a9c4e0',m);g.fillRect(x,GY-h,4,h+8);if(mountH(x+6)<mountH(x)-1){g.fillStyle=tc('#97b3d2',m);g.fillRect(x,GY-h+3,4,h)}const sn=Math.max(0,h-200)*.7;if(sn){g.fillStyle=tc('#eef4fb',m);g.fillRect(x,GY-h,4,Math.round(sn/2)*2+2);if(mountH(x+6)<mountH(x)-1){g.fillStyle=tc('#cdd9ea',m);g.fillRect(x,GY-h+2,4,Math.round(sn/2)*2)}}}});
   haze(.6);
   
 if(WX>=1&&WX<=4){const CL=WX===1||WX===3?cloud:cloudG,nc=WX===1?9:15;L(.2,(a,b)=>{const span=W*T*.2+cw/S+700;for(let i=0;i<nc;i++){const s=hs(i*29+7),x=((s%2000+t*(3+s%5)*(WX===4?3:1))%span+span)%span-350+cx*.2-300,y=GY-250-(s>>8)%280;if(x>a-100&&x<b+20){g.drawImage(CL[m],Math.round(x),y);g.drawImage(CL[m],Math.round(x)+28,y+7)}}})}
 L(.25,(a,b)=>{const span=W*T*.25+cw/S+400;[[100,GY-330,4],[520,GY-400,3],[900,GY-300,5],[1300,GY-380,4],[1700,GY-340,3],[2100,GY-420,4]].forEach(([x0,y,v])=>{const x=((x0+t*v)%span+span)%span-200+cx*.25-200;if(x>a-60&&x<b)g.drawImage(cloud[m],Math.round(x),y)})});
-  L(.38,(a,b)=>{g.fillStyle=tc('#98cc9c',m);for(let x=Math.floor(a/4)*4;x<b;x+=4){const h=Math.round(midH(x)/2)*2;g.fillRect(x,GY-h,4,h+8)}
+  LC('hl',.38,GY-300,312,(a,b)=>{g.fillStyle=tc('#98cc9c',m);for(let x=Math.floor(a/4)*4;x<b;x+=4){const h=Math.round(midH(x)/2)*2;g.fillRect(x,GY-h,4,h+8)}
     g.fillStyle=tc('#83bb8b',m);for(let x=Math.floor(a/26)*26;x<b;x+=26){const s=hs(x+7);if(s%3===0)continue;const bx=x+s%12,top=GY-Math.round(midH(bx))-(8+s%8);for(let y=0;y<14+s%6;y+=2){const hw=1+Math.floor(y/3);g.fillRect(bx-hw,top+y,hw*2,2)}}
-    [520,1340].forEach(wx=>{if(wx<a-40||wx>b+40)return;const base=GY-Math.round(midH(wx));g.fillStyle=tc('#7aa681',m);for(let y=0;y<34;y+=2){const hw=3+Math.floor(y/6);g.fillRect(wx-hw,base-34+y,hw*2,2)}g.fillRect(wx-5,base-38,10,4);
-      g.save();g.translate(wx,base-34);g.rotate(t*.7);g.fillStyle=tc('#f2ede0',m);for(let k=0;k<4;k++){g.rotate(Math.PI/2);g.fillRect(-1,2,2,20);g.fillRect(1,6,4,14)}g.restore()})});
+    [520,1340].forEach(wx=>{if(wx<a-40||wx>b+40)return;const base=GY-Math.round(midH(wx));g.fillStyle=tc('#7aa681',m);for(let y=0;y<34;y+=2){const hw=3+Math.floor(y/6);g.fillRect(wx-hw,base-34+y,hw*2,2)}g.fillRect(wx-5,base-38,10,4);})});
+  L(.38,(a,b)=>{[520,1340].forEach(wx=>{if(wx<a-40||wx>b+40)return;const base=GY-Math.round(midH(wx));g.save();g.translate(wx,base-34);g.rotate(t*.7);g.fillStyle=tc('#f2ede0',m);for(let k=0;k<4;k++){g.rotate(Math.PI/2);g.fillRect(-1,2,2,20);g.fillRect(1,6,4,14)}g.restore()})});
   haze(.35);
-  L(.62,(a,b)=>{g.fillStyle=tc('#7bbd73',m);for(let x=Math.floor(a/4)*4;x<b;x+=4){const h=Math.round(nearH(x)/2)*2;g.fillRect(x,GY-h,4,h+8)}
+  LC('nr',.62,GY-300,312,(a,b)=>{g.fillStyle=tc('#7bbd73',m);for(let x=Math.floor(a/4)*4;x<b;x+=4){const h=Math.round(nearH(x)/2)*2;g.fillRect(x,GY-h,4,h+8)}
     for(let x=Math.floor(a/30)*30;x<b;x+=30){const s=hs(x*3+1),bx=x+s%14,base=GY-Math.round(nearH(bx));if(s%5===0){g.fillStyle=tc('#e9dcc0',m);g.fillRect(bx-6,base-8,12,8);g.fillStyle=tc('#b4533c',m);for(let y=0;y<6;y+=2)g.fillRect(bx-7+y,base-14+y,14-y*2,2);g.fillStyle=m===2?'#ffd75e':tc('#5a6a80',m);g.fillRect(bx-3,base-6,2,2);g.fillRect(bx+2,base-6,2,2)}
       else if(s%3){g.fillStyle=tc('#64a95f',m);pcirc(g,bx,base-6-s%4,5+s%3,2);g.fillStyle=tc('#4e9450',m);g.fillRect(bx,base-8-s%4,5,4);g.fillStyle=tc('#5a3a20',m);g.fillRect(bx,base-2,1,3)}}});
   haze(.14);
@@ -445,16 +449,16 @@ L(.25,(a,b)=>{const span=W*T*.25+cw/S+400;[[100,GY-330,4],[520,GY-400,3],[900,GY
     for(let j=0;j<n;j++){const bx=Math.round(x-Math.sign(v)*Math.abs(j-c)*10),byy=Math.round(by+Math.abs(j-c)*6+Math.sin(t*2+j)*2+(m===2?Math.sin(t*7+j*3)*5:0));if(bx<x0-10||bx>x1)continue;BIRD[Math.floor(t*(m===2?14:7)+j*1.7)%2].forEach(([px,py])=>g.fillRect(bx+px,byy+py,1,1))}});
   /* avlu: çim dokusu ve derinlik gölgesi */
   [['#9ad66a',0,2],['#6dbb4f',2,10],['#66b449',12,12],['#5fae45',24,10],['#58a641',34,6]].forEach(([c,a,h])=>{g.fillStyle=tc(c,m);g.fillRect(X0,GY+a,XW,h)});
-  for(let x=Math.floor(x0/4)*4;x<x1;x+=4)for(let r=0;r<9;r++){const s=hs(x*13+r*7919);if(s%3===0){g.fillStyle=tc(s%2?'#4f9a3c':'#82c95e',m);g.fillRect(x+s%4,GY+3+r*4,1,2)}if(s%41===0){g.fillStyle=tc(s%2?'#fff1d6':'#ffd34e',m);g.fillRect(x+(s>>3)%4,GY+4+r*4,1,1)}}
+  LC('gr',1,GY,40,(x0,x1)=>{for(let x=Math.floor(x0/4)*4;x<x1;x+=4)for(let r=0;r<9;r++){const s=hs(x*13+r*7919);if(s%3===0){g.fillStyle=tc(s%2?'#4f9a3c':'#82c95e',m);g.fillRect(x+s%4,GY+3+r*4,1,2)}if(s%41===0){g.fillStyle=tc(s%2?'#fff1d6':'#ffd34e',m);g.fillRect(x+(s>>3)%4,GY+4+r*4,1,1)}}});
   
 if(WX===3){g.fillStyle=tc('#eef3f8',m);g.fillRect(X0,GY,XW,40);g.fillStyle=tc('#d5e0ec',m);for(let x=Math.floor(x0/6)*6;x<x1;x+=6){const s=hs(x*11+3);g.fillRect(x+s%4,GY+4+(s>>4)%34,2,1)}g.fillStyle=tc('#ffffff',m);g.fillRect(X0,GY,XW,2)}
-const yg=g.createLinearGradient(0,GY,0,GY+40);yg.addColorStop(0,'rgba(255,255,220,.07)');yg.addColorStop(1,'rgba(10,40,10,.16)');g.fillStyle=yg;g.fillRect(X0,GY,XW,40);
+const yg=gcache('yg',()=>{const q=g.createLinearGradient(0,GY,0,GY+40);q.addColorStop(0,'rgba(255,255,220,.07)');q.addColorStop(1,'rgba(10,40,10,.16)');return q});g.fillStyle=yg;g.fillRect(X0,GY,XW,40);
   g.fillStyle=tc('#9a6a3a',m);g.fillRect(X0,GY+40,XW,6);g.fillStyle=tc('#5fad44',m);g.fillRect(X0,GY+40,XW,1);
-  for(let x=Math.floor(x0/10)*10;x<x1;x+=10){const s=hs(x+3);g.fillStyle=tc(s%2?'#b9b5ac':'#8f8b82',m);g.fillRect(x+s%6,GY+42+(s>>4)%3,3,2);g.fillStyle=tc('#6f6b63',m);g.fillRect(x+s%6,GY+44+(s>>4)%3,3,1)}
+  LC('pb',1,GY+40,10,(x0,x1)=>{for(let x=Math.floor(x0/10)*10;x<x1;x+=10){const s=hs(x+3);g.fillStyle=tc(s%2?'#b9b5ac':'#8f8b82',m);g.fillRect(x+s%6,GY+42+(s>>4)%3,3,2);g.fillStyle=tc('#6f6b63',m);g.fillRect(x+s%6,GY+44+(s>>4)%3,3,1)}});
   /* nehir tabanı */
-  const wg=g.createLinearGradient(0,RIV0,0,RIV1);wg.addColorStop(0,tc('#7cc0e4',m));wg.addColorStop(.5,tc('#4f98c6',m));wg.addColorStop(1,tc('#2f6f9e',m));g.fillStyle=wg;g.fillRect(X0,RIV0,XW,48);
+  const wg=gcache('wg'+m,()=>{const q=g.createLinearGradient(0,RIV0,0,RIV1);q.addColorStop(0,tc('#7cc0e4',m));q.addColorStop(.5,tc('#4f98c6',m));q.addColorStop(1,tc('#2f6f9e',m));return q});g.fillStyle=wg;g.fillRect(X0,RIV0,XW,48);
   g.fillStyle=tc('#d9c08a',m);g.fillRect(X0,RIV1,XW,5);g.fillStyle=tc('#4f9a3c',m);g.fillRect(X0,RIV1+5,XW,y1-RIV1);
-  for(let x=Math.floor(x0/9)*9;x<x1;x+=9){const s=hs(x*7+5);g.fillStyle=tc(s%2?'#3f8a32':'#5fad44',m);g.fillRect(x+s%5,RIV1+8+(s>>4)%24,2,1)}
+  LC('rb',1,RIV1,40,(x0,x1)=>{for(let x=Math.floor(x0/9)*9;x<x1;x+=9){const s=hs(x*7+5);g.fillStyle=tc(s%2?'#3f8a32':'#5fad44',m);g.fillRect(x+s%5,RIV1+8+(s>>4)%24,2,1)}});
   /* parçalar */
   const vis=items.map((o,i)=>[o,i]).filter(([o])=>{const p=PM[o.id];return (o.x+p.w)*T+DX>=x0-40&&o.x*T<=x1+40}).sort((a,b)=>PM[a[0].id].layer-PM[b[0].id].layer||a[1]-b[1]);
   const walls=new Set(),occ=new Set();
@@ -468,7 +472,7 @@ const yg=g.createLinearGradient(0,GY,0,GY+40);yg.addColorStop(0,'rgba(255,255,22
     g.fill()}
   for(const [o] of vis){const p=PM[o.id];if(o.y+p.h===GROUND){const ex=p.layer<=1?DX:0;g.fillStyle='rgba(20,30,10,.24)';g.fillRect(o.x*T-1,GY,p.w*T+ex+2,2);g.fillStyle='rgba(20,30,10,.1)';g.fillRect(o.x*T+1,GY+2,p.w*T+ex-2,2)}}
   if(m===2)for(const [o] of vis){const p=PM[o.id];if(!p.glow||o.y+p.h!==GROUND)continue;const X=o.x*T+p.glow[0][0];g.save();g.translate(X,GY+5);g.scale(1,.3);const gr=g.createRadialGradient(0,0,0,0,0,30);gr.addColorStop(0,'rgba(255,214,120,.35)');gr.addColorStop(1,'rgba(255,214,120,0)');g.fillStyle=gr;g.fillRect(-30,-30,60,60);g.restore()}
-  for(const [o] of vis){const p=PM[o.id];if(p.layer>1)continue;for(let k=DS;k>0;k--)g.drawImage(p.side[m],o.x*T+Math.round(DX*k/DS),o.y*T+Math.round(DY*k/DS))}
+  for(const [o] of vis){const p=PM[o.id];if(p.layer>1)continue;g.drawImage(extr(p,m),o.x*T,o.y*T-EY)}
   let shadowed=false;
   for(const [o] of vis){const p=PM[o.id];
     if(p.layer===3&&!shadowed){shadowed=true;g.fillStyle='rgba(40,20,10,.22)';for(const [q] of vis){const pq=PM[q.id];if(pq.layer===1&&walls.has(q.x+','+(q.y+1)))g.fillRect(q.x*T,(q.y+1)*T,T,3)}
@@ -484,8 +488,11 @@ const yg=g.createLinearGradient(0,GY,0,GY+40);yg.addColorStop(0,'rgba(255,255,22
 if(WX===3){for(let k=DS;k>=0;k--){g.fillStyle=tc(k?'#dfe7f0':'#fbfdff',m);const ox=Math.round(DX*k/DS),oy=Math.round(DY*k/DS);for(const [o] of vis){const p=PM[o.id];if(p.layer>1||occ.has(o.x+','+(o.y-1)))continue;const ed=TOPE[o.id];for(let x=0;x<T;x++){const y=ed?ed[x]:0;if(y<0)continue;g.fillRect(o.x*T+x+ox,o.y*T+y-1+oy,1,2)}}}}
 /* suya yansıma: binalar, tepeler ve gökyüzü dalgalı şekilde suya düşer */
   g.setTransform(1,0,0,1,0,0);g.globalAlpha=m===2?.26:.32;
-  for(let k=0;k<48;k+=2){const dy=Math.round((RIV0+k-cy)*S),sy0=Math.round((GY-1-k*2.2-4.4-cy)*S),sh=Math.max(1,Math.round(4.4*S));if(sy0<0||sy0+sh>ch||dy>ch)continue;
-    const off=Math.round(Math.sin(t*2.2+k*.45)*1.6*S*(.35+k/48));g.drawImage(g.canvas,0,sy0,cw,sh,off,dy,cw,Math.ceil(2*S))}
+  /* tuvali kendi üstüne 24 kez kopyalamak yerine yansıyacak şeridi bir kez ayrı tuvale al */
+  const sh=Math.max(1,Math.round(4.4*S)),rb0=Math.max(0,Math.round((GY-1-46*2.2-4.4-cy)*S)),rb1=Math.min(ch,Math.round((GY-1-4.4-cy)*S)+sh);
+  if(rb1>rb0){if(!RC.c)RC.c=document.createElement('canvas');const rc=RC.c;if(rc.width!==cw||rc.height<rb1-rb0){rc.width=cw;rc.height=rb1-rb0}const rg=rc.getContext('2d');rg.globalCompositeOperation='copy';rg.drawImage(g.canvas,0,rb0,cw,rb1-rb0,0,0,cw,rb1-rb0);
+  for(let k=0;k<48;k+=2){const dy=Math.round((RIV0+k-cy)*S),sy0=Math.round((GY-1-k*2.2-4.4-cy)*S);if(sy0<0||sy0+sh>ch||dy>ch)continue;
+    const off=Math.round(Math.sin(t*2.2+k*.45)*1.6*S*(.35+k/48));g.drawImage(rc,0,sy0-rb0,cw,sh,off,dy,cw,Math.ceil(2*S))}}
   g.globalAlpha=1;g.setTransform(S,0,0,S,Math.round(-cx*S),Math.round(-cy*S));
   const wt=g.createLinearGradient(0,RIV0,0,RIV1);wt.addColorStop(0,'rgba(120,190,230,.10)');wt.addColorStop(1,'rgba(20,60,100,.28)');g.fillStyle=wt;g.fillRect(X0,RIV0,XW,48);
   g.fillStyle=tc('#e8f6ff',m);g.fillRect(X0,RIV0,XW,1);
