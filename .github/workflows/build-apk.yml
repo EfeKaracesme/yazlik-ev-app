@@ -102,19 +102,7 @@ jobs:
           </manifest>
           EOF
 
-          cat > $A/res/drawable/ic_launcher.xml <<'EOF'
-          <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="108dp" android:height="108dp"
-              android:viewportWidth="16" android:viewportHeight="16">
-              <path android:fillColor="#7FC4EF" android:pathData="M0,0h16v16h-16z" />
-              <path android:fillColor="#5FAE45" android:pathData="M0,12h16v4h-16z" />
-              <path android:fillColor="#F0DFBD" android:pathData="M4,7h8v5h-8z" />
-              <path android:fillColor="#C2492F" android:pathData="M3,7L8,3L13,7z" />
-              <path android:fillColor="#8A5A32" android:pathData="M7,9h2v3h-2z" />
-              <path android:fillColor="#8CC8EC" android:pathData="M5,8h1.5v1.5h-1.5zM9.5,8h1.5v1.5h-1.5z" />
-              <path android:fillColor="#FFE066" android:pathData="M12,1h2v2h-2z" />
-          </vector>
-          EOF
+          cp icon.png $A/res/drawable/ic_launcher.png
 
           cat > $A/java/com/yazlik/ev/MainActivity.java <<'EOF'
           package com.yazlik.ev;
